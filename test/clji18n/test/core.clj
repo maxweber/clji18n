@@ -19,6 +19,8 @@
   (:use clji18n.core)
   (:use [lazytest.describe :only (describe it testing given)]))
 
+(defn greeting [name]
+  (str "Hello " name))
 
 (describe "bundles"
   (given [default-bundle {"name" "clji18n" nil nil}
@@ -63,7 +65,8 @@
 (describe interationalize
   (given [en-bundle {"bye" "bye"
                      :the-girl-phrase "{0} was born on {1,date,short}"
-                     :plural "{0,choice,0#no Clojure programmers|1#a single Clojure programmer|1<{0,number,integer} Clojure programmers}"}
+                     :plural "{0,choice,0#no Clojure programmers|1#a single Clojure programmer|1<{0,number,integer} Clojure programmers}"
+                     "greeting" greeting}
           es-ar-bundle {"bye" "chau"
                         :the-girl-phrase "{0} nació el {1,date,short}"
                         :plural "{0,choice,0#ningún programador Clojure|1#solo un programador Clojure|1<{0,number,integer} programadores Clojure}"}
@@ -107,7 +110,13 @@
         (it "formats singular"
           (= "solo un programador Clojure" (internationalize tree es-ar :plural 1)))
         (it "formats plurals"
-          (= "2 programadores Clojure" (internationalize tree es-ar :plural 2)))))))
+          (= "2 programadores Clojure" (internationalize tree es-ar :plural 2)))))
+    (testing "unknown key"
+      (it "should return nil if the key was not found in the given resource(s)"
+        (= nil (internationalize tree en-us :unknown-key))))
+    (testing "fn"
+      (it "should support functions as translation value"
+        (= greeting (internationalize tree en-us "greeting"))))))
 
 (describe _
   (given [en-bundle {:hi "hi {0}"}

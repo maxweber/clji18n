@@ -136,13 +136,16 @@
 
      (internationalize tree locale :greeting \"Rich\" (java.util.Date.))"
   [tree locale key & args]
-  (let [pattern (resource tree locale key)
-        mf (doto (MessageFormat. "")
-             ;for some reason it won't work if I create the MessageFormat with the
-             ;pattern, maybe I need to assign the locale before the pattern
-             (.setLocale (java-locale locale))
-             (.applyPattern pattern))]
-    (.format mf (to-array args))))
+  (if-let [pattern (resource tree locale key)]
+    (if (fn? pattern)
+      pattern
+      (let [mf (doto (MessageFormat. "")
+                 ;for some reason it won't work if I create the MessageFormat with the
+                 ;pattern, maybe I need to assign the locale before the pattern
+                 (.setLocale (java-locale locale))
+                 (.applyPattern pattern))]
+        (.format mf (to-array args))))
+    nil))
 
 (def
   #^{:doc "The current locale for the application. You can rebind this var"}
