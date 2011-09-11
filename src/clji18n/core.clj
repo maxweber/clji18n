@@ -185,3 +185,24 @@
             tree
             (partition 2 locale-tree-pairs))))
 
+(defn- build-separate-resources [resources]
+  (reduce (fn [separate-resources entry]
+            (let [[k v] entry]
+              (if (map? v)
+                (reduce (fn [separate-resources keyvaluepair]
+                          (let [[locale text] keyvaluepair]
+                            (assoc-in separate-resources
+                                      [locale k]
+                                      text)))
+                        separate-resources v)                  
+                separate-resources)))
+          {} resources))
+
+(defn make-related-resource-tree [default-locale-key & resources]
+  (let [separate-resources (apply merge (map build-separate-resources resources))
+        default-resource (get separate-resources default-locale-key)
+        separate-resources (dissoc separate-resources default-locale-key)]
+    (apply
+     make-resource-tree default-resource
+     (flatten (map #(let [[locale-name resource] %]
+                      [(locale (name locale-name)) resource]) separate-resources)))))

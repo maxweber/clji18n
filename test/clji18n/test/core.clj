@@ -150,3 +150,20 @@
     (it "adds prefix for non existent keyword keys"
         (= "test: bye" (get-resource res :bye)))))
 
+(describe make-related-resource-tree
+  (given [related-bundle {"hi"
+                          {:en "hi"
+                           :es "hola"}
+                          "bye"
+                          {:en "bye"
+                           :es "adiós"}}
+          es (locale "es")
+          en (locale "en")
+          de (locale "de")
+          default-locale-key :en
+          tree (make-related-resource-tree default-locale-key
+                                           related-bundle)]
+    (it "should build the corresponding separated bundles out of the related bundle"
+      (= "hola" (resource tree es "hi")))
+    (it "should define the (separated) bundle with the default-locale-key as default bundle"
+      (= "bye" (resource tree de "bye")))))
