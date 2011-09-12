@@ -18,6 +18,8 @@
   #^{:author "Sebastián Galkin"
      :doc "Simple internationalization for Clojure"}
   clji18n.core
+  (:use participation.core
+        [clojure.string :only [join split]])
   (:require [clojure.string :as s])
   (:import java.text.MessageFormat))
 
@@ -185,7 +187,7 @@
             tree
             (partition 2 locale-tree-pairs))))
 
-(defn- build-separate-resources [resources]
+(defn- build-separate-resources [related-resource]
   (reduce (fn [separate-resources entry]
             (let [[k v] entry]
               (if (map? v)
@@ -196,13 +198,72 @@
                                       text)))
                         separate-resources v)                  
                 separate-resources)))
-          {} resources))
+          {} related-resource))
 
-(defn make-related-resource-tree [default-locale-key & resources]
-  (let [separate-resources (apply merge (map build-separate-resources resources))
+(defn split-locale-keyword [keyword]
+  (split (name keyword) #"_"))
+
+(defn keyword-to-locale [keyword]
+  (apply locale (split-locale-keyword keyword)))
+
+(defn make-related-resource-tree [default-locale-key & related-resources]
+  (let [separate-resources (apply merge (map build-separate-resources related-resources))
         default-resource (get separate-resources default-locale-key)
         separate-resources (dissoc separate-resources default-locale-key)]
     (apply
      make-resource-tree default-resource
      (flatten (map #(let [[locale-name resource] %]
-                      [(locale (name locale-name)) resource]) separate-resources)))))
+                      [(keyword-to-locale locale-name) resource]) separate-resources)))))
+
+
+(defparticipation extendable-bundle [bundle-name]
+  identity)
+
+(def extendable-bundle-participation-name "clji18n.core/extendable-bundle")
+
+(defn extend-bundle [bundle-name locale-vector bundle & {:keys [prefix]}]
+  {:pre [(string? bundle-name)
+         (vector? locale-vector)
+         (map? bundle)]}
+  (let [symbol-name (symbol
+                     (str prefix bundle-name "-" (join "_" locale-vector)))
+        value {:locale (apply locale locale-vector)
+               :bundle bundle}
+        participant (symbol (str *ns*) (name symbol-name))]
+    (intern *ns* symbol-name value)
+    (register-participant extendable-bundle-participation-name
+                          participant bundle-name)))
+
+(defn extend-bundle-with-related-bundle [bundle-name related-bundle]
+  (let [bundles (build-separate-resources related-bundle)
+        bundles (map #(let [[k v] %] [(vec (split-locale-keyword k)) v]) bundles)]
+    (doall (map #(let [[locale-vector bundle] %]
+                   (extend-bundle bundle-name locale-vector bundle :prefix "related-bundle-")) bundles))))
+
+(defn get-extendbale-bundles [extendable-bundle-name]
+  (map var-get (extendable-bundle extendable-bundle-name)))
+
+(defn make-locale-bundle-pairs [extendable-bundles]
+  (map (fn [{:keys [locale bundle]}]
+                       [locale bundle]) extendable-bundles))
+
+(defn merge-bundles [locale-bundle-pairs]
+  (->> locale-bundle-pairs
+       (group-by first)
+       (map (fn [x] (let [[k v] x
+                         bundles (map second v)]
+                     [k (apply merge bundles)])))))
+
+(defn- default-bundle [default-locale locale-bundle-pairs]
+  (let [default-bundle? #(= default-locale (first %))
+        default-bundle (second (first (filter default-bundle? locale-bundle-pairs)))
+        bundles (remove default-bundle? locale-bundle-pairs)]
+    [default-bundle bundles]))
+
+(defn make-tree-extendable-bundle [default-locale extendable-bundle-name]
+  (let [extendable-bundles (get-extendbale-bundles extendable-bundle-name)
+        bundles (-> extendable-bundles
+                    make-locale-bundle-pairs
+                    merge-bundles)
+        [default-bundle bundles] (default-bundle default-locale bundles)]
+    (apply make-resource-tree default-bundle (apply concat bundles))))

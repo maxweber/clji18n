@@ -152,18 +152,57 @@
 
 (describe make-related-resource-tree
   (given [related-bundle {"hi"
-                          {:en "hi"
+                          {"en" "hi"
                            :es "hola"}
                           "bye"
                           {:en "bye"
-                           :es "adiós"}}
+                           :en__MAC "BYE"
+                           :es "adiós"
+                           :es_ar "chau"}}
           es (locale "es")
           en (locale "en")
+          en__MAC (locale "en" "" "MAC")
           de (locale "de")
+          es-ar (locale "es" "ar")
           default-locale-key :en
           tree (make-related-resource-tree default-locale-key
                                            related-bundle)]
     (it "should build the corresponding separated bundles out of the related bundle"
       (= "hola" (resource tree es "hi")))
     (it "should define the (separated) bundle with the default-locale-key as default bundle"
-      (= "bye" (resource tree de "bye")))))
+      (= "bye" (resource tree de "bye")))
+    (it "should support composite locales"
+      (= "chau" (resource tree es-ar "bye")))
+    (it "should support composite locales with a missing country"
+      (= "BYE" (resource tree en__MAC "bye")))))
+
+(extend-bundle "error-bundle" ["de"]
+               {"hi" "Hallo"})
+
+(extend-bundle "error-bundle" ["en"]
+               {"hi" "hi"
+                "bye" "bye"})
+
+(extend-bundle "error-bundle" ["de"]
+               {"Good morning" "Guten Morgen"}
+               :prefix "another")
+
+(extend-bundle-with-related-bundle "error-bundle"
+  {"Good evening"
+   {:en "Good evening"
+    :de "Guten Abend"}})
+
+(describe extendable-bundle
+  (given [tree (make-tree-extendable-bundle (locale "en") "error-bundle")
+          de (locale "de")
+          en (locale "en")]
+    (it "should be a bundle which is extendable via the participation pattern"
+      (= "Hallo" (resource tree de "hi")))
+    (it "should have a default locale"
+      (= "bye" (resource tree de "bye")))
+    (it "should merge the different participating bundles if they have the same locale"
+      (and (= "Guten Morgen" (resource tree de "Good morning"))
+           (= "Hallo" (resource tree de "hi"))))
+    (it "should support that a related bundle can be a part of an extendable bundle"
+      (and (= "Good evening" (resource tree en "Good evening"))
+           (= "Guten Abend" (resource tree de "Good evening"))))))
