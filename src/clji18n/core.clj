@@ -230,7 +230,7 @@
         value {:locale (apply locale locale-vector)
                :bundle bundle}
         participant (symbol (str *ns*) (name symbol-name))]
-    (intern *ns* symbol-name value)
+    (intern *ns* (with-meta symbol-name {:private true}) value)
     (register-participant extendable-bundle-participation-name
                           participant bundle-name)))
 
