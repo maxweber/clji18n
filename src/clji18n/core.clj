@@ -216,7 +216,7 @@
                       [(keyword-to-locale locale-name) resource]) separate-resources)))))
 
 
-(defparticipation extendable-bundle [bundle-name]
+(defparticipation "extendable-bundle"
   identity)
 
 (def extendable-bundle-participation-name "clji18n.core/extendable-bundle")
